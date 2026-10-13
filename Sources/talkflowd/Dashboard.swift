@@ -757,6 +757,9 @@ private struct SettingsView: View {
         }
     }
 
+    /// One switch row: the title, a line saying what the switch does (`help`,
+    /// also the tooltip), then an optional `note` for anything the user must
+    /// know before flipping it (a download, a missing requirement).
     private func toggle(_ text: String, help: String, note: String? = nil, isOn: Binding<Bool>) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
