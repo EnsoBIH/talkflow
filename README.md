@@ -4,7 +4,7 @@
 
 # talkflow
 
-**Free, open-source dictation that runs on your own computer.**<br>
+**Free, open-source dictation that runs on your own computer!**<br>
 Hold <kbd>fn</kbd>, speak, let go. Your words are typed into whatever app you're in.
 
 [![Latest release](https://img.shields.io/github/v/release/saamirkhrl/talkflow?label=release&color=1f1e22)](https://github.com/saamirkhrl/talkflow/releases/latest)
