@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 
 namespace Talkflow;
 
@@ -307,4 +309,59 @@ static class Ui
         FontSize = 12,
         CaretBrush = Ink,
     };
+
+    /// <summary>Capsule menu like the Mac dashboard chart picker: label, chevron, hairline border.</summary>
+    public static Button CapsuleMenu(IReadOnlyList<string> options, string current, Action<string> onSelected)
+    {
+        var label = Text(current, 12, Ink, FontWeights.Medium, wrap: false);
+        var chevron = new Path
+        {
+            Data = Geometry.Parse("M 0,0 L 4,3.5 L 8,0"),
+            Stroke = Ink,
+            StrokeThickness = 1.25,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            StrokeLineJoin = PenLineJoin.Round,
+            Width = 8,
+            Height = 4,
+            Stretch = Stretch.None,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(4, 0, 0, 0),
+        };
+        var button = new Button
+        {
+            Padding = new Thickness(12, 5, 12, 5),
+            FontSize = 12,
+            Cursor = Cursors.Hand,
+            BorderThickness = new Thickness(1),
+            Background = Brushes.Transparent,
+            BorderBrush = Line,
+            Foreground = Ink,
+            Template = PillTemplate(),
+            Content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Children = { label, chevron },
+            },
+        };
+        var menu = new ContextMenu();
+        foreach (var option in options)
+        {
+            var item = new MenuItem { Header = option, FontSize = 12 };
+            var choice = option;
+            item.Click += (_, _) =>
+            {
+                label.Text = choice;
+                onSelected(choice);
+            };
+            menu.Items.Add(item);
+        }
+        button.Click += (_, _) =>
+        {
+            menu.PlacementTarget = button;
+            menu.Placement = PlacementMode.Bottom;
+            menu.IsOpen = true;
+        };
+        return button;
+    }
 }

@@ -204,23 +204,20 @@ sealed class DashboardWindow : Window
         panel.Children.Add(Ui.Card(grid, new Thickness(0)));
 
         var chartHeader = new DockPanel { Margin = new Thickness(0, 22, 0, 8) };
-        var chartChoice = new ComboBox { Width = 120, FontSize = 12 };
-        chartChoice.Items.Add("Grid");
-        chartChoice.Items.Add("Weekly bars");
-        chartChoice.SelectedItem = _app.Settings.DashboardChart;
+        var chartHost = new ContentControl();
+        var days = _app.Stats.RecentDays(ChartDays());
+        void RefreshChart(string style)
+        {
+            _app.Settings.DashboardChart = style;
+            chartHost.Content = style == "Weekly bars" ? WeeklyBars(days) : ContributionGrid(days);
+        }
+        var chartChoice = Ui.CapsuleMenu(new[] { "Grid", "Weekly bars" }, _app.Settings.DashboardChart, RefreshChart);
         DockPanel.SetDock(chartChoice, Dock.Right);
         chartHeader.Children.Add(chartChoice);
         chartHeader.Children.Add(Ui.Text($"Last {ChartWeeks} weeks", 12, Ui.Graphite));
         panel.Children.Add(chartHeader);
 
-        var chartHost = new ContentControl();
-        var days = _app.Stats.RecentDays(ChartDays());
-        chartHost.Content = _app.Settings.DashboardChart == "Weekly bars" ? WeeklyBars(days) : ContributionGrid(days);
-        chartChoice.SelectionChanged += (_, _) =>
-        {
-            _app.Settings.DashboardChart = (string)chartChoice.SelectedItem;
-            chartHost.Content = _app.Settings.DashboardChart == "Weekly bars" ? WeeklyBars(days) : ContributionGrid(days);
-        };
+        RefreshChart(_app.Settings.DashboardChart);
         panel.Children.Add(chartHost);
 
         var hint = Ui.Text($"Hold {_app.Hotkey.Spec.Describe()} to dictate.", 12, Ui.Graphite);
