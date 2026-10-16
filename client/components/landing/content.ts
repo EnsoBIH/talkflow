@@ -1,6 +1,12 @@
 // Copy and demo data for the landing page. Every product claim here is checked
 // against the app's source; keep it that way when editing.
 
+// The home page's title and meta description, which are also the site's
+// defaults (app/layout.tsx).
+export const SITE_TITLE = "talkflow: talk to your computer, for free";
+export const SITE_DESCRIPTION =
+  "The free, open-source Wispr Flow alternative. Hold a key, speak, and your words are typed wherever your cursor is. Runs entirely on your Mac or PC.";
+
 export const REPO_URL = "https://github.com/saamirkhrl/talkflow";
 // The newest Mac build itself, not the releases page: GitHub serves the asset
 // named here from whichever release is latest, so the link never goes stale.

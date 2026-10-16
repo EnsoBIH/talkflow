@@ -2,9 +2,11 @@ import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Newsreader } from "next/font/google";
 import { Footer } from "@/components/landing/Footer";
+import { SITE_DESCRIPTION, SITE_TITLE } from "@/components/landing/content";
 import { Nav } from "@/components/landing/Nav";
 import { SmoothScroll } from "@/components/landing/SmoothScroll";
 import { VisitorProvider } from "@/components/landing/visitor";
+import { SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
 const newsreader = Newsreader({
@@ -14,13 +16,18 @@ const newsreader = Newsreader({
   axes: ["opsz"],
 });
 
+// The defaults every page starts from. Pages set their own title,
+// description, canonical and social cards with pageMetadata (lib/seo.ts);
+// the Open Graph image comes from app/opengraph-image.tsx.
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "talkflow: talk to your computer, for free",
+    default: SITE_TITLE,
     template: "%s | talkflow",
   },
-  description:
-    "The free, open-source Wispr Flow alternative. Hold a key, speak, and your words are typed wherever your cursor is. Runs entirely on your Mac or PC.",
+  description: SITE_DESCRIPTION,
+  openGraph: { type: "website", siteName: SITE_NAME, locale: "en_US" },
+  twitter: { card: "summary_large_image" },
 };
 
 

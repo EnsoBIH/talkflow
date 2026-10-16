@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmailLink, LegalPage, REPO_URL } from "@/components/legal/LegalPage";
+import { pageMetadata } from "@/lib/seo";
 
 // The first app version that counts installs (docs/telemetry.md).
 const COUNTED_FROM = "0.1.6";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Privacy Policy",
   description:
     "What the talkflow website and app do and do not do with your information. Dictation happens on your own Mac.",
-};
+  path: "/privacy",
+});
 
 export default function PrivacyPage() {
   return (

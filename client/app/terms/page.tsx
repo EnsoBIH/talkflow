@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmailLink, LegalPage, REPO_URL } from "@/components/legal/LegalPage";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Terms of Use",
   description:
     "The terms for using the talkflow website. The talkflow app is covered by its own open-source license.",
-};
+  path: "/terms",
+});
 
 export default function TermsPage() {
   return (

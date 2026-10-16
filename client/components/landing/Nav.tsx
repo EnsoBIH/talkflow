@@ -1,6 +1,7 @@
 "use client";
 
 import { Star } from "lucide-react";
+import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { Wordmark } from "@/components/brand/Logo";
 import { cn } from "@/lib/cn";
@@ -38,9 +39,9 @@ export function Nav({ stars }: { stars: number | null }) {
             : "h-14 max-w-[820px] bg-paper/90 shadow-[0_1px_2px_rgba(31,30,34,0.06)]",
         )}
       >
-        <a href="/#top" aria-label="talkflow home" className="mr-auto inline-flex items-center rounded-full">
+        <Link href="/#top" aria-label="talkflow home" className="mr-auto inline-flex items-center rounded-full">
           <Wordmark className={cn("transition-[font-size] duration-500", scrolled ? "text-[19px]" : "text-[21px]")} />
-        </a>
+        </Link>
 
         {!mobile && (
           <div className="flex items-center text-[15px] text-graphite">
