@@ -39,6 +39,15 @@ function Badges() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img alt="Featured on TryMacApps" width={200} height={67} src="https://www.trymacapps.com/badge.png" />
       </a>
+      <a
+        href="https://usefulshelf.co/?utm_source=maker-website&utm_medium=referral&utm_campaign=badge&utm_content=lime"
+        target="_blank"
+        rel="nofollow noopener noreferrer"
+        className="inline-flex rounded-lg transition-opacity hover:opacity-80"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img alt="Featured on UsefulShelf" width={248} height={66} src="https://usefulshelf.co/badge/usefulshelf.svg?theme=lime" />
+      </a>
     </div>
   );
 }
