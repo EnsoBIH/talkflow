@@ -12,6 +12,33 @@ export function FinalCta() {
       <div className="mt-10">
         <DownloadCta />
       </div>
+      <Badges />
     </section>
+  );
+}
+
+// Launch-directory badges, under the install command.
+function Badges() {
+  return (
+    <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+      <a
+        href="https://www.producthunt.com/products/talkflow-6?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-talkflow-ea47cdaa-f4ff-4b0b-a5a4-56bd516d7179"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex rounded-lg transition-opacity hover:opacity-80"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          alt="talkflow - 100% free, open-source, and private alternative to WisprFlow | Product Hunt"
+          width={200}
+          height={43}
+          src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1280918&theme=light&t=1792035925990"
+        />
+      </a>
+      <a href="https://www.trymacapps.com" target="_blank" rel="noopener noreferrer" className="inline-flex rounded-lg transition-opacity hover:opacity-80">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img alt="Featured on TryMacApps" width={200} height={67} src="https://www.trymacapps.com/badge.png" />
+      </a>
+    </div>
   );
 }
