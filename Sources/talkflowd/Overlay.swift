@@ -1,8 +1,8 @@
 import AppKit
 
 /// The floating "pill" indicator: a small black rounded bar, bottom-center of the
-/// main screen, with a red recording dot and a row of bars that react to live mic
-/// input level. Shown while recording/processing; hidden the rest of the time.
+/// screen the user is dictating into, with a red recording dot and a row of bars
+/// that react to live mic input level. Shown while recording/processing; hidden the rest of the time.
 /// No separate "processing" color - the dot stays red for as long as the pill is
 /// visible, whether actively recording or wrapping up.
 final class OverlayController {
@@ -16,12 +16,88 @@ final class OverlayController {
     private let barCount = 9
     private let dotSize: CGFloat = 10
     private let sidePadding: CGFloat = 16
+    /// Gap between the bottom of the screen and the pill.
+    private let bottomOffset: CGFloat = 70
+
+    /// The screen the pill is on, picked again at every `show()`. The caption
+    /// and error notice stack above the pill on the same screen.
+    private var screen: NSScreen?
+    private var screenObserver: NSObjectProtocol?
+
+    init() {
+        // A display plugged in, unplugged or rearranged moves every screen's
+        // coordinates; a pill on screen re-places itself so it never sits at
+        // the old ones (or on a display that is gone). The caption follows on
+        // its next update, which reads `screen`.
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            if self.panel?.isVisible == true { self.placePill() } else { self.screen = nil }
+        }
+    }
+
+    deinit {
+        if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+    }
 
     func show() {
         if panel == nil {
             buildPanel()
         }
+        placePill()
         panel?.orderFrontRegardless()
+    }
+
+    /// Centers the pill horizontally at the bottom of the screen the user is
+    /// dictating into. Recomputed on every show, never cached across them.
+    private func placePill() {
+        guard let panel, let screen = Self.targetScreen() else { return }
+        self.screen = screen
+        let frame = screen.frame
+        panel.setFrame(NSRect(x: (frame.midX - width / 2).rounded(), y: frame.minY + bottomOffset,
+                              width: width, height: height), display: true)
+    }
+
+    /// The screen holding the frontmost app's frontmost window - the app the
+    /// text is going into. Read from the window server, not Accessibility:
+    /// this runs the moment the hotkey goes down, before the mic is live, and
+    /// must not wait on a slow app. Falls back to the screen under the mouse,
+    /// then the main screen.
+    static func targetScreen() -> NSScreen? {
+        let screens = NSScreen.screens
+        if let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+           let bounds = frontWindowBounds(of: pid),
+           let primary = screens.first {
+            // Window-server bounds have a top-left origin on the primary
+            // display; AppKit's have a bottom-left one.
+            let window = NSRect(x: bounds.minX, y: primary.frame.maxY - bounds.maxY,
+                                width: bounds.width, height: bounds.height)
+            let best = screens.max { overlap($0.frame, window) < overlap($1.frame, window) }
+            if let best, overlap(best.frame, window) > 0 { return best }
+        }
+        let mouse = NSEvent.mouseLocation
+        return screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? screens.first
+    }
+
+    private static func frontWindowBounds(of pid: pid_t) -> CGRect? {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+                as? [[String: Any]] else { return nil }
+        // Front to back; the first normal-level window of the app is the one in use.
+        for info in list {
+            guard (info[kCGWindowOwnerPID as String] as? pid_t) == pid,
+                  (info[kCGWindowLayer as String] as? Int) == 0,
+                  let dict = info[kCGWindowBounds as String] as? NSDictionary,
+                  let rect = CGRect(dictionaryRepresentation: dict),
+                  rect.width > 1, rect.height > 1 else { continue }
+            return rect
+        }
+        return nil
+    }
+
+    private static func overlap(_ a: NSRect, _ b: NSRect) -> CGFloat {
+        let i = a.intersection(b)
+        return i.isNull ? 0 : i.width * i.height
     }
 
     func hide() {
@@ -50,7 +126,7 @@ final class OverlayController {
         let full = settled + pending
         guard !full.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         if captionPanel == nil { buildCaptionPanel() }
-        guard let captionPanel, let captionLabel, let screen = NSScreen.main else { return }
+        guard let captionPanel, let captionLabel, let screen = screen ?? NSScreen.main else { return }
 
         // Trim from the front at a word boundary, keeping the solid/dim split.
         var cut = max(0, full.count - captionMaxCharacters)
@@ -73,8 +149,8 @@ final class OverlayController {
                                        options: [.usesLineFragmentOrigin, .usesFontLeading]).size
         let width = min(captionMaxWidth, ceil(fitted.width) + 2 * captionPadding + 2)
         let height = ceil(fitted.height) + 2 * captionPadding - 6
-        let pillTop = screen.frame.minY + 70 + self.height
-        captionPanel.setFrame(NSRect(x: screen.frame.midX - width / 2, y: pillTop + 10, width: width, height: height), display: true)
+        let pillTop = screen.frame.minY + bottomOffset + self.height
+        captionPanel.setFrame(NSRect(x: (screen.frame.midX - width / 2).rounded(), y: pillTop + 10, width: width, height: height), display: true)
         captionLabel.frame = NSRect(x: captionPadding, y: captionPadding - 3, width: width - 2 * captionPadding, height: ceil(fitted.height))
         captionPanel.orderFrontRegardless()
     }
@@ -125,7 +201,7 @@ final class OverlayController {
         DispatchQueue.main.async { [self] in
             print("talkflowd: pill error: \(message)")
             if noticePanel == nil { buildNoticePanel() }
-            guard let noticePanel, let noticeLabel, let screen = NSScreen.main else { return }
+            guard let noticePanel, let noticeLabel, let screen = screen ?? Self.targetScreen() else { return }
             let text = NSAttributedString(string: message, attributes: [
                 .font: NSFont.systemFont(ofSize: 13, weight: .medium),
                 .foregroundColor: NSColor.white
@@ -138,9 +214,9 @@ final class OverlayController {
             let width = ceil(fitted.width) + dot + gap + 2 * padding + 2
             let height = max(32, ceil(fitted.height) + 16)
             // Above the pill, and above the caption when one is showing.
-            let pillTop = screen.frame.minY + 70 + self.height
+            let pillTop = screen.frame.minY + bottomOffset + self.height
             let captionTop = captionPanel?.isVisible == true ? (captionPanel?.frame.maxY ?? pillTop) : pillTop
-            noticePanel.setFrame(NSRect(x: screen.frame.midX - width / 2, y: captionTop + 10, width: width, height: height), display: true)
+            noticePanel.setFrame(NSRect(x: (screen.frame.midX - width / 2).rounded(), y: captionTop + 10, width: width, height: height), display: true)
             noticePanel.contentView?.subviews.first?.frame = NSRect(x: padding, y: (height - dot) / 2, width: dot, height: dot)
             noticeLabel.frame = NSRect(x: padding + dot + gap, y: (height - ceil(fitted.height)) / 2 - 1,
                                        width: ceil(fitted.width) + 2, height: ceil(fitted.height))
@@ -205,12 +281,9 @@ final class OverlayController {
     }
 
     private func buildPanel() {
-        guard let screen = NSScreen.main else { return }
-        let x = screen.frame.midX - width / 2
-        let y: CGFloat = screen.frame.minY + 70
-
+        // Placed by placePill() before every show.
         let panel = NSPanel(
-            contentRect: NSRect(x: x, y: y, width: width, height: height),
+            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
