@@ -13,20 +13,29 @@ import Foundation
 /// writing the header ourselves makes the result deterministic - there is no
 /// finalisation step that can be racing anything.
 final class Recorder {
-    private let engine = AVAudioEngine()
+    /// Replaced after a stop that hung (see `stop()`); otherwise kept for the
+    /// life of the app.
+    private var engine = AVAudioEngine()
     private let sampleRate: Double = 16000
+
+    /// How long `stop()` waits for CoreAudio before giving up on it.
+    static let stopTimeout: TimeInterval = 0.5
 
     /// Guards `samples`, which the audio tap appends to on a realtime thread
     /// while the main thread reads snapshots of it for the live preview.
     private let lock = NSLock()
     private var samples: [Int16] = []
+    /// Bumped by every start and stop, under `lock`. A tap only appends while
+    /// its own start is current, so an engine abandoned by `stop()` can't
+    /// leak audio into the next hold.
+    private var generation = 0
 
     /// Fires on a background thread with each buffer's RMS level (roughly 0...1)
     /// so the overlay can animate in step with the speaker's voice.
     var onLevel: ((Float) -> Void)?
 
     func start() throws {
-        lock.lock(); samples = []; lock.unlock()
+        lock.lock(); samples = []; generation += 1; let current = generation; lock.unlock()
 
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
@@ -76,7 +85,7 @@ final class Recorder {
             guard frames > 0 else { return }
             let chunk = UnsafeBufferPointer(start: channelData[0], count: frames)
             self.lock.lock()
-            self.samples.append(contentsOf: chunk)
+            if self.generation == current { self.samples.append(contentsOf: chunk) }
             self.lock.unlock()
         }
 
@@ -110,11 +119,41 @@ final class Recorder {
     }
 
     /// Stops capture and returns the complete recording as a WAV.
+    ///
+    /// The engine is stopped off the main thread and waited on for at most
+    /// `stopTimeout`. CoreAudio can hang in `AVAudioEngine.stop()` when it
+    /// lands a few milliseconds after the input started (an accidental tap of
+    /// the shortcut): one did for 15s. Called on the main thread, that froze
+    /// the pill on screen and kept the event tap from running until macOS
+    /// disabled it, losing the key-up. A hung engine is left to finish on its
+    /// own and is released when it does; the next hold gets a new one.
     @discardableResult
     func stop() -> Data {
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
-        return snapshotWAV()
+        let engine = self.engine
+        let stopped = Self.finishes(within: Self.stopTimeout) {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+        }
+        if !stopped {
+            self.engine = AVAudioEngine()
+            print("talkflowd: the microphone did not stop within \(Self.stopTimeout)s, finishing the hold without waiting; the next hold uses a new audio engine")
+        }
+        lock.lock()
+        generation += 1
+        let copy = samples
+        lock.unlock()
+        return Self.wav(from: copy, sampleRate: Int(sampleRate))
+    }
+
+    /// Runs `work` on a background queue and reports whether it finished
+    /// within `timeout`. Work that overruns keeps running; nothing waits for it.
+    static func finishes(within timeout: TimeInterval, _ work: @escaping () -> Void) -> Bool {
+        let done = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async {
+            work()
+            done.signal()
+        }
+        return done.wait(timeout: .now() + timeout) == .success
     }
 
     /// A canonical 44-byte RIFF/WAVE header followed by the samples. Every length

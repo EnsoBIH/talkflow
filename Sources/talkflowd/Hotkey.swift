@@ -254,6 +254,9 @@ final class HotkeyMonitor {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             print("talkflowd: tap was disabled (\(type)), re-enabling")
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            // Events that arrived while the tap was off are gone, the
+            // shortcut's key-up among them, so read where the keys are now.
+            resync(flags: CGEventSource.flagsState(.combinedSessionState))
             return
         }
         switch type {
@@ -281,13 +284,7 @@ final class HotkeyMonitor {
 
         if onRecorded != nil {
             if pressed { recorded.insert(key) }
-            if held.isEmpty, !recorded.isEmpty {
-                let done = onRecorded
-                let spec = HotkeySpec.fromRecorded(recorded)
-                onRecorded = nil
-                recorded = []
-                done?(spec)
-            }
+            finishRecordingIfReleased()
             return
         }
 
@@ -303,6 +300,32 @@ final class HotkeyMonitor {
             active = true
             onStart?()
         }
+    }
+
+    /// The keys' real state, for when events were missed (the tap was
+    /// disabled). Only lets go of keys, so it can end a hold but never start
+    /// one. Internal, not private, for the self-test.
+    func resync(flags: CGEventFlags) {
+        held = held.filter { $0.isDown(in: flags) }
+        if onRecorded != nil {
+            finishRecordingIfReleased()
+            return
+        }
+        if active, !spec.groups.allSatisfy({ $0.contains(where: held.contains) }) {
+            print("talkflowd: the shortcut was released while the tap was off, ending the hold")
+            active = false
+            onStop?()
+        }
+    }
+
+    /// Recording a shortcut ends once every key it pressed is up.
+    private func finishRecordingIfReleased() {
+        guard held.isEmpty, !recorded.isEmpty else { return }
+        let done = onRecorded
+        let spec = HotkeySpec.fromRecorded(recorded)
+        onRecorded = nil
+        recorded = []
+        done?(spec)
     }
 
     /// Any other key went down. Internal, not private, for the self-test.
