@@ -1627,6 +1627,35 @@ enum StreamSelfTest {
         monitor.flagsChanged(keycode: 63, flags: .maskSecondaryFn)
         monitor.flagsChanged(keycode: 63, flags: [])
         check(events == ["start", "stop"], "hotkey: Fn still works as before", "\(events)")
+
+        // The tap was disabled mid-hold and the key-up never arrived.
+        events = []
+        monitor.flagsChanged(keycode: 63, flags: .maskSecondaryFn)
+        monitor.resync(flags: .maskSecondaryFn)
+        check(events == ["start"], "hotkey: a resync while the key is still down keeps the hold", "\(events)")
+        monitor.resync(flags: [])
+        check(events == ["start", "stop"], "hotkey: a resync after a missed key-up ends the hold", "\(events)")
+        monitor.flagsChanged(keycode: 63, flags: [])
+        check(events == ["start", "stop"], "hotkey: the late key-up after a resync is quiet", "\(events)")
+
+        monitor.spec = HotkeySpec(groups: [Key.leftShift.family, Key.leftCommand.family])
+        events = []
+        monitor.flagsChanged(keycode: 56, flags: flags(.leftShift))
+        monitor.flagsChanged(keycode: 55, flags: flags(.leftShift, .leftCommand))
+        monitor.resync(flags: flags(.leftShift))
+        check(events == ["start", "stop"], "hotkey: a resync ends Shift + Command once Command is up", "\(events)")
+        monitor.resync(flags: flags())
+        events = []
+        monitor.resync(flags: flags(.leftShift, .leftCommand))
+        check(events.isEmpty, "hotkey: a resync never starts a dictation", "\(events)")
+
+        // Recorder.stop's guard against a hung AVAudioEngine.stop().
+        check(Recorder.finishes(within: 1) {}, "recorder: a prompt stop counts as finished")
+        let waitStarted = Date()
+        let hung = Recorder.finishes(within: 0.1) { Thread.sleep(forTimeInterval: 1) }
+        let waited = Date().timeIntervalSince(waitStarted)
+        check(!hung && waited < 0.5, "recorder: a hung stop is given up on at the timeout",
+              "finished \(hung) after \(String(format: "%.2f", waited))s")
     }
 
     /// GitHub release parsing and version order, for the update check.
